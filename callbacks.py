@@ -23,7 +23,7 @@ def setup(self):
     np.random.seed()    
     # Q matrix
     if op.isfile("Q.txt") != True:        
-        Q = np.zeros((176*9,5),dtype = float)
+        Q = np.zeros((176*10,5),dtype = float)
         np.savetxt("Q.txt", Q)
     self.coordinate_history = deque([], 20)
     self.logger.info('Initialize')
@@ -40,8 +40,8 @@ def act(self):
     if np.random.rand(1) <= epsilon:
         self.next_action = action_ideas.pop()
     else:
-        index = statefun(arena,x,y,coins)
-        q_state = Q[index]
+        state = statefun(arena,x,y,coins)
+        q_state = Q[state]
         act = np.argmax(q_state)
         
         if act == 0: action_ideas.append('UP')
@@ -53,7 +53,9 @@ def act(self):
     self.logger.info('Pick action at random')
 
 def reward_update(self):   
-    alpha = 1   
+    
+    alpha = 0.1
+    
     Q = np.loadtxt("Q.txt")
     arena = self.game_state['arena']
     coins = self.game_state['coins']
@@ -61,16 +63,30 @@ def reward_update(self):
     state = statefun(arena,x,y,coins)
     index = 4
     
-    if self.events[0] == e.MOVED_LEFT: index=0
-    if self.events[0] == e.MOVED_RIGHT: index=1
-    if self.events[0] == e.MOVED_UP: index=2
-    if self.events[0] == e.MOVED_DOWN: index=3
-    if self.events[0] == e.WAITED: index=4
+    if self.events[0] == e.MOVED_LEFT: 
+        index=0
+        next_state = (x-1,y)
+    if self.events[0] == e.MOVED_RIGHT: 
+        index=1
+        next_state =  (x+1,y)
+    if self.events[0] == e.MOVED_UP: 
+        index=2
+        next_state = (x,y+1)
+    if self.events[0] == e.MOVED_DOWN: 
+        index=3
+        next_state = (x,y-1)
+    if self.events[0] == e.WAITED: 
+        index=4
+        next_state= (x,y)
     if len(self.events)>1:
         if self.events[1] == e.COIN_COLLECTED:
-            Q[state][index]=Q[state][index]+alpha*100
+            reward=100
+            next_coins = coins[:-1]            
     else:
-            Q[state][index]=Q[state][index]-alpha*1
+            reward=-1
+            next_coins = coins
+    next_state = statefun(arena,next_state[0],next_state[1],next_coins)
+    Q[state][index]=(1-alpha)*Q[state][index]+alpha*(reward+ np.argmax(Q[next_state]))
     
     np.savetxt("Q.txt", Q)    
     
